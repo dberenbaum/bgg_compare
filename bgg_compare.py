@@ -146,32 +146,24 @@ def condorcet_irv(ratings_list, ids):
         irv[i]["year"] = info.find("yearpublished")["value"]
         irv[i]["id"] = int(ids[i])
 
-    # Generate condorcet pairwise matrix.
-    cond_mat = np.zeros((num_games, num_games))
-    for user in users:
-        max_rating = 0
-        top_games = []
-        for i, ratings_i in enumerate(ratings_list):
-            if user in ratings_i.keys():
-                irv[i]["votes"] += 1
-                score_i = ratings_i[user]
-                if score_i > max_rating:
-                    max_rating = score_i
-                    top_games = [i]
-                elif score_i == max_rating:
-                    top_games.append(i)
-                for j, ratings_j in enumerate(ratings_list):
-                    if user in ratings_j.keys():
-                        score_j = ratings_j[user]
-                        cond_mat[i, j] += int(score_i > score_j)
-                        cond_mat[j, i] += int(score_j > score_i)
-        for g in top_games:
-            irv[g]["top_rating"] += 1
+    # Create matrix of all games/users.
+    user_game_mat = np.zeros((num_games, len(users)))
+    for i, ratings in enumerate(ratings_list):
+        irv[i]["votes"] = len(ratings)
+        for j, user in enumerate(users):
+            user_game_mat[i,j] = ratings.get(user, np.nan)
 
-    # Subtract columns from rows to show winners (where row is all nonnegative.)
-    diff_mat = np.zeros((num_games, num_games))
-    for game_ix in range(num_games):
-        diff_mat[game_ix, :] = cond_mat[game_ix, :] - cond_mat[:, game_ix]
+    # Generate matrix showing how many times game was favored in pairwise comparison.
+    cond_mat = np.apply_along_axis(lambda x: np.apply_along_axis(np.sum, 1, x > user_game_mat),
+                        1, user_game_mat)
+
+    # For IRV tiebreaker, how many times game was a user's top ranked game.
+    top_ratings = np.max(user_game_mat, 0)
+    irv[:]["top_rating"] = np.apply_along_axis(lambda x: np.sum(top_ratings == x),
+                                               1, user_game_mat)
+
+    # Subtract columns from rows to show pairwise difference between games.
+    diff_mat = cond_mat - cond_mat.T
     np.fill_diagonal(diff_mat, 1)
 
     # Get tiebreak order.
@@ -187,6 +179,7 @@ def condorcet_irv(ratings_list, ids):
         # Find condorcet winner.
         winners = []
         while not len(winners):
+            # Winning rows are all positive.
             winners = np.where(np.all(temp_mat > 0, axis=1))[0]
             assert len(winners) <= 1, "multiple winners found"
             if len(winners):

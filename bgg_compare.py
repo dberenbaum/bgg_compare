@@ -2,6 +2,7 @@ import csv
 import glob
 import os
 import numpy as np
+import numpy.ma as ma
 import requests
 from bs4 import BeautifulSoup
 
@@ -140,7 +141,7 @@ def condorcet_irv(ratings_list, ids):
 
     # Get info for IRV tiebreaker.
     irv = np.zeros((num_games,), dtype=[("top_rating", "<i4"), ("votes", "<i4"),
-                                          ("year", "<i4"), ("id", "<i4")])
+                                        ("year", "<i4"), ("id", "<i4")])
     game_info = get_game_info(ids)
     for i, info in enumerate(game_info):
         irv[i]["year"] = info.find("yearpublished")["value"]
@@ -151,11 +152,11 @@ def condorcet_irv(ratings_list, ids):
     for i, ratings in enumerate(ratings_list):
         irv[i]["votes"] = len(ratings)
         for j, user in enumerate(users):
-            user_game_mat[i,j] = ratings.get(user, np.nan)
+            user_game_mat[i, j] = ratings.get(user, np.nan)
 
     # Generate matrix showing how many times game was favored in pairwise comparison.
     cond_mat = np.apply_along_axis(lambda x: np.apply_along_axis(np.sum, 1, x > user_game_mat),
-                        1, user_game_mat)
+                                   1, user_game_mat)
 
     # For IRV tiebreaker, how many times game was a user's top ranked game.
     top_ratings = np.max(user_game_mat, 0)
@@ -166,7 +167,7 @@ def condorcet_irv(ratings_list, ids):
     diff_mat = cond_mat - cond_mat.T
     np.fill_diagonal(diff_mat, 1)
 
-    # Get tiebreak order.
+    # Get tiebreak order, inverting years and ids for uniform sort order.
     max_year = np.max(irv[:]["year"])
     irv[:]["year"] = max_year - irv[:]["year"]
     max_id = np.max(irv[:]["id"])
@@ -174,29 +175,30 @@ def condorcet_irv(ratings_list, ids):
 
     # Rank by condorcet-IRV method.
     while len(irv):
-        temp_mat = diff_mat.copy()
-        temp_irv = irv.copy()
+        # Create masked array copies to hide tiebreak losers.
+        masked_mat = ma.masked_array(diff_mat)
+        masked_irv = ma.masked_array(irv)
         # Find condorcet winner.
         winners = []
         while not len(winners):
             # Winning rows are all positive.
-            winners = np.where(np.all(temp_mat > 0, axis=1))[0]
+            winners = ma.where(ma.all(masked_mat > 0, axis=1))[0]
             assert len(winners) <= 1, "multiple winners found"
             if len(winners):
-                temp_id = temp_irv[winners[0]]["id"]
-                winning_ix = np.where(irv[:]["id"] == temp_id)[0][0]
-                diff_mat = np.delete(diff_mat, winning_ix, axis=0)
-                diff_mat = np.delete(diff_mat, winning_ix, axis=1)
-                irv = np.delete(irv, winning_ix)
-                winning_id = -(temp_id - max_id)
-                ranks.append(str(winning_id))
+                temp_id = irv[winners]["id"][0]
+                game_id = -(temp_id - max_id)  # Convert back to original id.
+                ranks.append(str(game_id))
+                diff_mat = np.delete(diff_mat, winners, axis=0)
+                diff_mat = np.delete(diff_mat, winners, axis=1)
+                irv = np.delete(irv, winners)
             else:
                 # Remove plurality loser.
-                tiebreak = np.argsort(temp_irv, order=("top_rating", "votes", "year", "id"))
-                plurality_loser = tiebreak[0]
-                temp_mat = np.delete(temp_mat, plurality_loser, axis=0)
-                temp_mat = np.delete(temp_mat, plurality_loser, axis=1)
-                temp_irv = np.delete(temp_irv, plurality_loser)
+                tiebreak = np.argsort(masked_irv, order=("top_rating", "votes",
+                                                         "year", "id"))
+                loser = tiebreak[0]
+                masked_irv[loser] = ma.masked
+                masked_mat[loser, :] = ma.masked
+                masked_mat[:, loser] = ma.masked
 
     return ranks
 

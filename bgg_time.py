@@ -1,5 +1,3 @@
-import os
-import sys
 from bs4 import BeautifulSoup
 
 import bgg_core
@@ -8,7 +6,7 @@ import bgg_core
 def get_plays(id):
     """Get plays for game with given id."""
 
-    query_dict = {"id": id}
+    query_dict = {"id": id, "pagesize": 100}
     page = 1
     more_pages = True
     plays = {}
@@ -42,15 +40,7 @@ def main():
     """Analyze length of time for logged plays of game."""
 
     # Ask for game to analyze.
-    search = input("Enter board game to search (leave empty if finished):")
-
-    matches = bgg_core.find_game(search)
-
-    print("Games found:")
-    for game_id, name in matches.items():
-        print(game_id + "\t" + name)
-    game_id = input("Enter the number before the intended game:")
-    name = matches[game_id]
+    game_id, name = bgg_core.select_game()
 
     players = input("Enter player count by which to filter (default is all counts):")
 
@@ -58,14 +48,7 @@ def main():
 
     print(name)
 
-    plays = {}
-    filename = "plays/%s.json" % game_id
-
-    if os.path.exists(filename):
-        plays = bgg_core.read_data(filename)
-    else:
-        plays = get_plays(game_id)
-        bgg_core.write_data(plays, filename)
+    plays = bgg_core.read_data(game_id, "plays", get_plays)
 
     timed_plays = [p for p in plays.values() if p["length"]]
     if players:

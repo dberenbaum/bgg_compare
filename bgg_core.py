@@ -1,4 +1,5 @@
 import json
+import os
 import requests
 from bs4 import BeautifulSoup
 
@@ -30,6 +31,25 @@ def find_game(search):
     return matches
 
 
+def select_game():
+    """Ask for game to analyze."""
+
+    search = input("Enter board game to search (leave empty if finished):")
+
+    if not search:
+        raise ValueError
+
+    matches = find_game(search)
+
+    print("Games found:")
+    for id, name in matches.items():
+        print(id + "\t" + name)
+    game_id = input("Enter the number before the intended game:")
+    name = matches[game_id]
+
+    return game_id, name
+
+
 def get_game_info(id_list):
     """Get game info from ids."""
 
@@ -55,9 +75,16 @@ def write_data(data_dict, filename):
         json.dump(data_dict, jsonfile)
 
 
-def read_data(filename):
+def read_data(id, dir, func):
     """Read data into dict."""
 
-    with open(filename) as jsonfile:
+    filename = "%s/%s.json" % (dir, id)
 
-        return json.load(jsonfile)
+    if os.path.exists(filename):
+        with open(filename) as jsonfile:
+            return json.load(jsonfile)
+    else:
+        os.makedirs(dir, exist_ok=True)
+        records = func(id)
+        write_data(records, filename)
+        return records

@@ -10,7 +10,7 @@ import bgg_core
 def get_ratings(id):
     """Get ratings for game with given id."""
 
-    query_dict = {"id": id, "ratingcomments": 1}
+    query_dict = {"id": id, "ratingcomments": 1, "pagesize": 100}
     page = 1
     more_pages = True
     ratings = {}
@@ -141,18 +141,10 @@ def main():
     more_games = True
 
     while more_games:
-        search = input("Enter board game to search (leave empty if finished):")
-
-        if search:
-            matches = bgg_core.find_game(search)
-
-            print("Games found:")
-            for game_id, name in matches.items():
-                print(game_id + "\t" + name)
-            id = input("Enter the number before the intended game:")
-            games.append((id, matches[id]))
-
-        else:
+        try:
+            games.append(bgg_core.select_game())
+        # Stop search if no input.
+        except ValueError:
             more_games = False
 
     # If no games entered, compare all downloaded ratings.
@@ -174,14 +166,7 @@ def main():
 
         print(name)
 
-        ratings = {}
-        filename = "ratings/%s.json" % game_id
-
-        try:
-            ratings = bgg_core.read_data(filename)
-        except:
-            ratings = get_ratings(game_id)
-            bgg_core.write_data(ratings, filename)
+        ratings = bgg_core.read_data(game_id, "ratings", get_ratings)
 
         all_ratings.append(ratings)
 

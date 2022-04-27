@@ -1,60 +1,16 @@
-import csv
 import glob
 import os
 import numpy as np
 import numpy.ma as ma
-import requests
 from bs4 import BeautifulSoup
 
-base_url = "https://www.boardgamegeek.com/xmlapi2"
-
-
-def get_data(base_type, params):
-    """Download data from BGG API."""
-
-    url = "/".join([base_url, base_type])
-    response = requests.get(url, params)
-    return response.text
-
-
-def find_game(search):
-    """Search for game matches."""
-
-    query_dict = {"type": "boardgame", "query": search}
-    response = get_data("search", query_dict)
-    soup = BeautifulSoup(response, "xml")
-
-    matches = {}
-
-    for tag in soup.find_all("item"):
-        id = tag["id"]
-        name = tag.contents[1]["value"]
-        matches[id] = name
-
-    return matches
-
-
-def get_game_info(id_list):
-    """Get game info from ids."""
-
-    ids = ",".join(id_list)
-    query_dict = {"id": ids, "type": "boardgame"}
-    response = get_data("thing", query_dict)
-    soup = BeautifulSoup(response, "xml")
-
-    games = []
-
-    for id in id_list:
-        tag = soup.find("item", attrs={"id": id})
-        games.append(tag)
-
-    return games
+import bgg_core
 
 
 def get_ratings(id):
     """Get ratings for game with given id."""
 
-    query_dict = {"id": id, "ratingcomments": 1, "pagesize": 100}
+    query_dict = {"id": id, "ratingcomments": 1}
     page = 1
     more_pages = True
     ratings = {}
@@ -64,7 +20,7 @@ def get_ratings(id):
         more_pages = False
 
         query_dict["page"] = page
-        response = get_data("thing", query_dict)
+        response = bgg_core.get_data("thing", query_dict)
         soup = BeautifulSoup(response, "xml")
 
         for tag in soup.find_all("comment"):
@@ -74,32 +30,6 @@ def get_ratings(id):
         print("Parsed page %s for game id %s" % (page, id))
 
         page += 1
-
-    return ratings
-
-
-def write_ratings(ratings, filename):
-    """Save ratings dict to csv to reduce repetitive scraping."""
-
-    with open(filename, "w") as csvfile:
-
-        writer = csv.writer(csvfile)
-
-        writer.writerows(list(ratings.items()))
-
-
-def read_ratings(filename):
-    """Read ratings from csv into dict."""
-
-    ratings = {}
-
-    with open(filename) as csvfile:
-
-        reader = csv.reader(csvfile)
-
-        for row in reader:
-
-            ratings[row[0]] = float(row[1])
 
     return ratings
 
@@ -142,7 +72,7 @@ def condorcet_irv(ratings_list, ids):
     # Get info for IRV tiebreaker.
     irv = np.zeros((num_games,), dtype=[("top_rating", "<i4"), ("votes", "<i4"),
                                         ("year", "<i4"), ("id", "<i4")])
-    game_info = get_game_info(ids)
+    game_info = bgg_core.get_game_info(ids)
     for i, info in enumerate(game_info):
         irv[i]["year"] = info.find("yearpublished")["value"]
         irv[i]["id"] = int(ids[i])
@@ -214,7 +144,7 @@ def main():
         search = input("Enter board game to search (leave empty if finished):")
 
         if search:
-            matches = find_game(search)
+            matches = bgg_core.find_game(search)
 
             print("Games found:")
             for game_id, name in matches.items():
@@ -228,10 +158,10 @@ def main():
     # If no games entered, compare all downloaded ratings.
     if not games:
         ids = []
-        for f in glob.glob("*.csv"):
+        for f in glob.glob("*.json"):
             id = os.path.splitext(f)[0]
             ids.append(id)
-        game_info = get_game_info(ids)
+        game_info = bgg_core.get_game_info(ids)
         for i, info in enumerate(game_info):
             name = info.find("name", attrs={"type": "primary"})["value"]
             games.append((ids[i], name))
@@ -245,13 +175,13 @@ def main():
         print(name)
 
         ratings = {}
-        filename = "%s.csv" % game_id
+        filename = "ratings/%s.json" % game_id
 
         try:
-            ratings = read_ratings(filename)
+            ratings = bgg_core.read_data(filename)
         except:
             ratings = get_ratings(game_id)
-            write_ratings(ratings, filename)
+            bgg_core.write_data(ratings, filename)
 
         all_ratings.append(ratings)
 

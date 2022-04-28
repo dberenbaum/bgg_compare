@@ -1,9 +1,29 @@
 import json
 import os
+import time
 import requests
 from bs4 import BeautifulSoup
 
 base_url = "https://www.boardgamegeek.com/xmlapi2"
+
+
+def pager(data="thing", query_dict={}, max_retry=1):
+    page = 1
+    retries = 0
+    ratings = {}
+
+    while retries < max_retry:
+
+        time.sleep(retries)
+        retries += 1
+        query_dict["page"] = page
+        response = get_data(data, query_dict)
+        soup = BeautifulSoup(response, "xml")
+
+        if not soup.find_all("error"):
+            page += 1
+            retries = 0
+            yield page, soup
 
 
 def get_games_by_rank_page(page):
@@ -15,9 +35,9 @@ def get_games_by_rank_page(page):
 
     # Iterate over all non-header rows
     for row in soup.find_all("tr")[1:]:
-        href = row.find(href=True)
-        game_url = href.attrs["href"]
-        game_id, name = game_url.split("/")[2:4]
+        tag = row.find(attrs={"class": "primary"})
+        name = tag.string
+        game_id = tag.attrs["href"].split("/")[2]
         yield game_id, name
 
 
@@ -100,6 +120,9 @@ def read_data(id, dir, func):
             return json.load(jsonfile)
     else:
         os.makedirs(dir, exist_ok=True)
-        records = func(id)
+        for _ in range(5):
+            records = func(id)
+            if records:
+                break
         write_data(records, filename)
         return records

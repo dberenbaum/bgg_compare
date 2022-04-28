@@ -1,33 +1,20 @@
-import collections
-from bs4 import BeautifulSoup
-
 import bgg_core
 import bgg_compare
-import bgg_time
 
 
 def get_num_plays(id, user):
     """Get user's num plays for game with given id."""
 
     query_dict = {"id": id, "username": user, "pagesize": 100}
-    page = 1
-    more_pages = True
     total_plays = 0
 
-    while more_pages:
-
-        more_pages = False
-
-        query_dict["page"] = page
-        response = bgg_core.get_data("plays", query_dict)
-        soup = BeautifulSoup(response, "xml")
+    for page, soup in bgg_core.pager("plays", query_dict):
 
         num_plays = len( soup.find_all("play"))
         if num_plays:
-            more_pages = True
             total_plays += num_plays
-
-        page += 1
+        else:
+            break
 
     return total_plays
 
@@ -51,7 +38,7 @@ def get_user_plays(game_id):
     return user_plays
 
 
-def main():
+def main(game_id, name):
     """Rate game, weighting each user's rating by number of plays."""
 
 
@@ -78,7 +65,7 @@ if __name__ == "__main__":
     # Ask for game to analyze.
     try:
         game_id, name = bgg_core.select_game()
-        main()
+        main(game_id, name)
     except ValueError:
         for game_id, name in bgg_core.get_games_by_rank_page(1):
-            main()
+            main(game_id, name)

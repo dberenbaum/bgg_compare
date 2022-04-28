@@ -2,7 +2,6 @@ import glob
 import os
 import numpy as np
 import numpy.ma as ma
-from bs4 import BeautifulSoup
 
 import bgg_core
 
@@ -11,25 +10,17 @@ def get_ratings(id):
     """Get ratings for game with given id."""
 
     query_dict = {"id": id, "ratingcomments": 1, "pagesize": 100}
-    page = 1
-    more_pages = True
     ratings = {}
 
-    while more_pages:
+    for page, soup in bgg_core.pager("thing", query_dict, 3):
 
-        more_pages = False
-
-        query_dict["page"] = page
-        response = bgg_core.get_data("thing", query_dict)
-        soup = BeautifulSoup(response, "xml")
-
-        for tag in soup.find_all("comment"):
+        tags = soup.find_all("comment")
+        if not tags:
+            break
+        for tag in tags:
             ratings[tag["username"]] = tag["rating"]
-            more_pages = True
 
         print("Parsed page %s for game id %s" % (page, id))
-
-        page += 1
 
     return ratings
 

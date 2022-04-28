@@ -1,5 +1,3 @@
-from bs4 import BeautifulSoup
-
 import bgg_core
 
 
@@ -7,19 +5,14 @@ def get_plays(id):
     """Get plays for game with given id."""
 
     query_dict = {"id": id, "pagesize": 100}
-    page = 1
-    more_pages = True
     plays = {}
 
-    while more_pages:
+    for page, soup in bgg_core.pager("plays", query_dict, 3):
 
-        more_pages = False
-
-        query_dict["page"] = page
-        response = bgg_core.get_data("plays", query_dict)
-        soup = BeautifulSoup(response, "xml")
-
-        for tag in soup.find_all("play"):
+        tags = soup.find_all("play")
+        if not tags:
+            break
+        for tag in tags:
             play_dict = {}
             play_dict["userid"] = tag["userid"]
             play_dict["date"] = tag["date"]
@@ -30,8 +23,6 @@ def get_plays(id):
             more_pages = True
 
         print("Parsed page %s for game id %s" % (page, id))
-
-        page += 1
 
     return plays
 

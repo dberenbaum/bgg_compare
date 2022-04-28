@@ -54,8 +54,6 @@ def get_user_plays(game_id):
 def main():
     """Rate game, weighting each user's rating by number of plays."""
 
-    # Ask for game to analyze.
-    game_id, name = bgg_core.select_game()
 
     print(name)
 
@@ -75,5 +73,12 @@ def main():
     play_rating = rating_sum / play_sum
     print("Weighted play rating: %.2f" % play_rating)
 
+
 if __name__ == "__main__":
-    main()
+    # Ask for game to analyze.
+    try:
+        game_id, name = bgg_core.select_game()
+        main()
+    except ValueError:
+        for game_id, name in bgg_core.get_games_by_rank_page(1):
+            main()

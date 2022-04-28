@@ -6,6 +6,21 @@ from bs4 import BeautifulSoup
 base_url = "https://www.boardgamegeek.com/xmlapi2"
 
 
+def get_games_by_rank_page(page):
+    """Scrape all games from page of rankings."""
+    url = "https://boardgamegeek.com/browse/boardgame/page/"
+    url = "/".join([url, str(page)])
+    response = requests.get(url)
+    soup = BeautifulSoup(response.text, "html.parser")
+
+    # Iterate over all non-header rows
+    for row in soup.find_all("tr")[1:]:
+        href = row.find(href=True)
+        game_url = href.attrs["href"]
+        game_id, name = game_url.split("/")[2:4]
+        yield game_id, name
+
+
 def get_data(base_type, params):
     """Download data from BGG API."""
 

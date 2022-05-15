@@ -41,6 +41,17 @@ def get_games_by_rank_page(page):
         yield game_id, name
 
 
+def get_username(userid):
+    """Get username from id."""
+    url = "https://boardgamegeek.com/trade/feedback"
+    url = "/".join([url, str(userid)])
+    response = requests.get(url)
+    soup = BeautifulSoup(response.text, "html.parser")
+
+    tag = soup.find(attrs={"data-userid": str(userid)})
+    return tag.attrs["data-username"]
+
+
 def get_data(base_type, params):
     """Download data from BGG API."""
 

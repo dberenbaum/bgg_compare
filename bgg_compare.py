@@ -141,8 +141,8 @@ def main():
     # If no games entered, compare all downloaded ratings.
     if not games:
         ids = []
-        for f in glob.glob("*.json"):
-            id = os.path.splitext(f)[0]
+        for f in glob.glob("games/*.json"):
+            id = os.path.basename(os.path.splitext(f)[0])
             ids.append(id)
         game_info = bgg_core.get_game_info(ids)
         for i, info in enumerate(game_info):

@@ -36,36 +36,20 @@ def get_user_plays(game_id):
     for play_dict in plays.values():
         userid_plays[play_dict["userid"]] += play_dict["quantity"]
 
-    with open("users.json") as jsonfile:
-        users = json.load(jsonfile)
-
     user_plays = {}
     total_users = len(userid_plays)
     user_num = 0
-    for userid, plays in userid_plays.items():
-        user_num += 1
-        if not user_num % 50:
-            print("Parsed %d of %d users for game id %s" % (user_num, total_users, game_id))
-        try:
-            username = users[userid]
-        except KeyError:
-            retries = 0
-            while retries < 5:
-                retries += 1
-                try:
-                    username = bgg_core.get_username(userid)
-                    if username:
-                        users[userid] = username
-                        break
-                except ConnectionError:
-                    pass
-        try:
-            user_plays[username] = {"rating": ratings[username], "plays": plays}
-        except KeyError:
-            pass
 
-    with open("users.json", "w") as jsonfile:
-        json.dump(users, jsonfile)
+    with bgg_core.PersistDict("users.json", bgg_core.get_username) as users:
+        for userid, plays in userid_plays.items():
+            user_num += 1
+            if not user_num % 50:
+                print("Parsed %d of %d users for game id %s" % (user_num, total_users, game_id))
+            username = users[userid]
+            try:
+                user_plays[username] = {"rating": ratings[username], "plays": plays}
+            except KeyError:
+                pass
 
     return user_plays
 
@@ -101,9 +85,8 @@ if __name__ == "__main__":
 
     # If no games entered, compare all downloaded game stats.
     except ValueError:
-        for f in glob.glob("user_plays/*.json"):
-            game_id = os.path.basename(os.path.splitext(f)[0])
-            game_info = bgg_core.get_game_info([game_id])
-            for i, info in enumerate(game_info):
-                name = info.find("name", attrs={"type": "primary"})["value"]
-            main(game_id, name)
+        with bgg_core.PersistDict("games.json", bgg_core.get_game_name) as games:
+            for f in glob.glob("user_plays/*.json"):
+                game_id = os.path.basename(os.path.splitext(f)[0])
+                name = games[game_id]
+                main(game_id, name)

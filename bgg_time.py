@@ -22,7 +22,7 @@ def get_plays(id):
             plays[tag["id"]] = play_dict
             more_pages = True
 
-        print("Parsed page %s for game id %s" % (page, id))
+        print("Parsed plays page %s for game id %s" % (page, id))
 
     return plays
 

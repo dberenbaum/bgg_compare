@@ -20,7 +20,7 @@ def get_ratings(id):
         for tag in tags:
             ratings[tag["username"]] = tag["rating"]
 
-        print("Parsed page %s for game id %s" % (page, id))
+        print("Parsed ratings page %s for game id %s" % (page, id))
 
     return ratings
 

@@ -1,6 +1,4 @@
 import bgg_compare
-import requests
-from bs4 import BeautifulSoup
 
 
 def main():

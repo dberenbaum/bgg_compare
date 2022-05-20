@@ -1,3 +1,6 @@
+import glob
+import os
+
 import bgg_core
 
 
@@ -27,6 +30,53 @@ def get_plays(id):
     return plays
 
 
+def play_stats(game_id, players=None, time_limit=500):
+    """Calculate play stats."""
+    plays = bgg_core.read_data(game_id, "plays", get_plays)
+
+    plays_count = 0
+    users = []
+    time_sum = 0
+    timed_plays_count = 0
+    timed_users = []
+    for play in plays.values():
+        plays_count += play["quantity"]
+        users.append(play["userid"])
+
+        if 0 < play["length"] < time_limit:
+            if players and (int(players) != play["players"]):
+                continue
+            time_sum += play["length"]
+            timed_plays_count += play["quantity"]
+            timed_users.append(play["userid"])
+
+    users_count = len(set(users))
+    avg_plays = plays_count / users_count
+    timed_users_count = len(set(timed_users))
+    avg_time = float(time_sum) / timed_plays_count
+    avg_time_per_user = float(time_sum) / timed_users_count
+
+    return {
+            "plays_count": plays_count,
+            "users_count": users_count,
+            "avg_plays": avg_plays,
+            "time_sum": time_sum,
+            "timed_plays_count": timed_plays_count,
+            "timed_users_count": timed_users_count,
+            "avg_time": avg_time,
+            "avg_time_per_user": avg_time_per_user
+            }
+
+
+def all_play_stats():
+    """Get all downloaded play stats."""
+    games_dict = {}
+    for f in glob.glob("plays/*.json"):
+        game_id = os.path.basename(os.path.splitext(f)[0])
+        games_dict[game_id] = play_stats(game_id)
+    return games_dict
+
+
 def main():
     """Analyze length of time for logged plays of game."""
 
@@ -41,14 +91,9 @@ def main():
 
     plays = bgg_core.read_data(game_id, "plays", get_plays)
 
-    timed_plays = [p for p in plays.values() if p["length"]]
-    if players:
-        timed_plays = [p for p in timed_plays if p["players"] == int(players)]
-    time = sum(p["length"] for p in timed_plays)
-    num_plays = sum(p["quantity"] for p in timed_plays)
-    print("Timed plays: %d" % num_plays)
-    avg_time = float(time) / num_plays
-    print("Average time: %.2f" % avg_time)
+    game_stats = play_stats(players)
+    print("Timed plays: %d" % game_stats["timed_plays"])
+    print("Average time: %.2f" % game_stats["avg_time"])
 
 
 if __name__ == "__main__":

@@ -8,23 +8,6 @@ import bgg_compare
 import bgg_time
 
 
-def get_num_plays(id, user):
-    """Get user's num plays for game with given id."""
-
-    query_dict = {"id": id, "username": user, "pagesize": 100}
-    total_plays = 0
-
-    for page, soup in bgg_core.pager("plays", query_dict):
-
-        num_plays = len( soup.find_all("play"))
-        if num_plays:
-            total_plays += num_plays
-        else:
-            break
-
-    return total_plays
-
-
 def get_user_plays(game_id):
     """Get game ratings and plays per user."""
 
@@ -54,27 +37,49 @@ def get_user_plays(game_id):
     return user_plays
 
 
-def main(game_id, name):
+def user_play_stats(game_id):
     """Rate game, weighting each user's rating by number of plays."""
+    user_plays = bgg_core.read_data(game_id, "user_plays", get_user_plays)
+
+    rating_sum = 0
+    plays_count = 0
+    users_count = len(user_plays)
+    for play_dict in user_plays.values():
+        rating_sum += float(play_dict["rating"]) * play_dict["plays"]
+        plays_count += play_dict["plays"]
+
+    avg_plays = plays_count / users_count
+    play_rating = rating_sum / plays_count
+
+    return {
+            "rated_plays_count": plays_count,
+            "rated_users_count": users_count,
+            "rated_avg_plays": avg_plays,
+            "rated_play_weighted_rating": play_rating
+            }
+
+
+def all_user_play_stats():
+    """Get all downloaded user play stats."""
+    games_dict = {}
+    for f in glob.glob("user_plays/*.json"):
+        game_id = os.path.basename(os.path.splitext(f)[0])
+        games_dict[game_id] = user_play_stats(game_id)
+    return games_dict
+
+
+def main(game_id, name):
+    """Print user play stats."""
 
 
     print(name)
 
-    user_plays = bgg_core.read_data(game_id, "user_plays", get_user_plays)
+    game_stats = user_play_stats(game_id)
 
-    rating_sum = 0
-    play_sum = 0
-    total_users = len(user_plays)
-    for play_dict in user_plays.values():
-        rating_sum += float(play_dict["rating"]) * play_dict["plays"]
-        play_sum += play_dict["plays"]
-
-    print("Plays for %s: %d" % (name, play_sum))
-    print("Unique users: %d" % total_users)
-    avg_plays = play_sum / total_users
-    print("Avg. plays: %.2f" % avg_plays)
-    play_rating = rating_sum / play_sum
-    print("Weighted play rating: %.2f" % play_rating)
+    print("Plays for %s: %d" % (name, game_stats["rated_plays_count"]))
+    print("Unique users: %d" % game_stats["rated_users_count"])
+    print("Avg. plays: %.2f" % game_stats["rated_avg_plays"])
+    print("Weighted play rating: %.2f" % game_stats["rated_play_weighted_rating"])
 
 
 if __name__ == "__main__":

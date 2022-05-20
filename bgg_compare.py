@@ -124,6 +124,18 @@ def condorcet_irv(ratings_list, ids):
     return ranks
 
 
+def all_ratings():
+    """Get all downloaded ratings."""
+    games_dict = {}
+    for f in glob.glob("ratings/*.json"):
+        game_id = os.path.basename(os.path.splitext(f)[0])
+        ratings = bgg_core.read_data(game_id, "ratings", get_ratings)
+        sum_rating = sum(float(r) for r in ratings.values())
+        avg_rating = sum_rating / len(ratings)
+        games_dict[game_id] = {"avg_rating": avg_rating}
+    return games_dict
+
+
 def main():
     """Compare ratings between users who have rated all games of interest."""
 

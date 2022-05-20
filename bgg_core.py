@@ -54,7 +54,10 @@ def get_username(userid, max_retry=5):
     soup = BeautifulSoup(response.text, "html.parser")
     tag = soup.find(attrs={"data-userid": str(userid)})
 
-    return tag.attrs["data-username"]
+    try:
+        return tag.attrs["data-username"]
+    except AttributeError:
+        print("No username found for %s" % userid)
 
 
 

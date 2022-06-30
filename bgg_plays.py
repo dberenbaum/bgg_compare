@@ -8,90 +8,72 @@ import bgg_compare
 import bgg_time
 
 
-def get_user_plays(game_id):
-    """Get game ratings and plays per user."""
-
+def collect_game_stats(game_id):
+    """Collect all game stats."""
     ratings = bgg_core.read_data(game_id, "ratings", bgg_compare.get_ratings)
+    sum_rating = sum(float(r) for r in ratings.values())
+    avg_rating = sum_rating / len(ratings)
 
-    plays = bgg_core.read_data(game_id, "plays", bgg_time.get_plays)
 
-    userid_plays = collections.defaultdict(int)
-    for play_dict in plays.values():
-        userid_plays[play_dict["userid"]] += play_dict["quantity"]
+    play_stats = bgg_time.play_stats(game_id)
 
-    user_plays = {}
-    total_users = len(userid_plays)
-    user_num = 0
+    play_stats["avg_rating"] = avg_rating
 
-    with bgg_core.PersistDict("users.json", bgg_core.get_username) as users:
-        for userid, plays in userid_plays.items():
-            user_num += 1
-            if not user_num % 50:
-                print("Parsed %d of %d users for game id %s" % (user_num, total_users, game_id))
-            username = users[userid]
+    return play_stats
+
+
+def all_games_stats():
+    """Get all downloaded game stats."""
+    all_ratings = bgg_compare.all_ratings()
+    all_play_stats = bgg_time.all_play_stats()
+
+    all_stats = {}
+    with bgg_core.PersistDict("games.json", bgg_core.get_game_name) as games:
+        for g in games.dict:
+            name = games[g]
             try:
-                user_plays[username] = {"rating": ratings[username], "plays": plays}
+                all_stats[name] = {**all_ratings[g], **all_play_stats[g]}
             except KeyError:
                 pass
 
-    return user_plays
+    return all_stats
 
 
-def user_play_stats(game_id):
-    """Rate game, weighting each user's rating by number of plays."""
-    user_plays = bgg_core.read_data(game_id, "user_plays", get_user_plays)
-
-    rating_sum = 0
-    plays_count = 0
-    users_count = len(user_plays)
-    for play_dict in user_plays.values():
-        rating_sum += float(play_dict["rating"]) * play_dict["plays"]
-        plays_count += play_dict["plays"]
-
-    avg_plays = plays_count / users_count
-    play_rating = rating_sum / plays_count
-
-    return {
-            "rated_plays_count": plays_count,
-            "rated_users_count": users_count,
-            "rated_avg_plays": avg_plays,
-            "rated_play_weighted_rating": play_rating
-            }
+def print_stats(game_stats):
+    """Print game stats."""
+    print("Average rating: %.2f" % game_stats["avg_rating"])
+    print("Plays: %d" % game_stats["plays_count"])
+    print("Unique users: %d" % game_stats["users_count"])
+    print("Average plays: %d" % game_stats["avg_plays"])
+    print("Timed plays: %d" % game_stats["timed_plays_count"])
+    print("Average time per play: %.2f" % game_stats["avg_time"])
+    print("Average time per user: %.2f" % game_stats["avg_time_per_user"])
+    print()
 
 
-def all_user_play_stats():
-    """Get all downloaded user play stats."""
-    games_dict = {}
-    for f in glob.glob("user_plays/*.json"):
-        game_id = os.path.basename(os.path.splitext(f)[0])
-        games_dict[game_id] = user_play_stats(game_id)
-    return games_dict
+def player_count_stats(game_id, play_limit=100):
+    """Calculate plays per player count."""
+    plays = bgg_core.read_data(game_id, "plays", bgg_time.get_plays)
 
+    player_count_stats = collections.defaultdict(int)
+    for play in plays.values():
+        if play["players"] and (play["quantity"] < play_limit):
+            player_count_stats[play["players"]] += play["quantity"]
 
-def main(game_id, name):
-    """Print user play stats."""
-
-
-    print(name)
-
-    game_stats = user_play_stats(game_id)
-
-    print("Plays for %s: %d" % (name, game_stats["rated_plays_count"]))
-    print("Unique users: %d" % game_stats["rated_users_count"])
-    print("Avg. plays: %.2f" % game_stats["rated_avg_plays"])
-    print("Weighted play rating: %.2f" % game_stats["rated_play_weighted_rating"])
+    return player_count_stats
 
 
 if __name__ == "__main__":
     # Ask for game to analyze.
     try:
         game_id, name = bgg_core.select_game()
-        main(game_id, name)
+        print(name)
+        game_stats = collect_game_stats(game_id)
+        print_stats(game_stats)
 
     # If no games entered, compare all downloaded game stats.
     except ValueError:
-        with bgg_core.PersistDict("games.json", bgg_core.get_game_name) as games:
-            for f in glob.glob("user_plays/*.json"):
-                game_id = os.path.basename(os.path.splitext(f)[0])
-                name = games[game_id]
-                main(game_id, name)
+        all_stats = all_games_stats()
+        for name, game_stats in all_stats.items():
+            print(name)
+            print_stats(game_stats)

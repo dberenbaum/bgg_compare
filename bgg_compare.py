@@ -18,11 +18,9 @@ def get_ratings(id):
         if not tags:
             break
         for tag in tags:
-            ratings[tag["username"]] = tag["rating"]
+            yield tag["username"] , tag["rating"]
 
         print("Parsed ratings page %s for game id %s" % (page, id))
-
-    return ratings
 
 
 def compare_ratings(ratings_list):

@@ -8,7 +8,6 @@ def get_plays(id):
     """Get plays for game with given id."""
 
     query_dict = {"id": id, "pagesize": 100}
-    plays = {}
 
     for page, soup in bgg_core.pager("plays", query_dict, 3):
 
@@ -22,17 +21,15 @@ def get_plays(id):
             play_dict["length"] = int(tag["length"])
             play_dict["quantity"] = int(tag["quantity"])
             play_dict["players"] = int(len(tag.find_all("player")))
-            plays[tag["id"]] = play_dict
+            yield tag["id"], play_dict
             more_pages = True
 
         print("Parsed plays page %s for game id %s" % (page, id))
 
-    return plays
 
-
-def play_stats(game_id, players=None, time_limit=500):
+def play_stats(game_id, players=None, time_limit=500, play_limit=100, update=False):
     """Calculate play stats."""
-    plays = bgg_core.read_data(game_id, "plays", get_plays)
+    plays = bgg_core.read_data(game_id, "plays", get_plays, update=update)
 
     plays_count = 0
     users = []
@@ -40,15 +37,16 @@ def play_stats(game_id, players=None, time_limit=500):
     timed_plays_count = 0
     timed_users = []
     for play in plays.values():
-        plays_count += play["quantity"]
-        users.append(play["userid"])
+        if play["quantity"] < play_limit:
+            plays_count += play["quantity"]
+            users.append(play["userid"])
 
-        if 0 < play["length"] < time_limit:
-            if players and (int(players) != play["players"]):
-                continue
-            time_sum += play["length"]
-            timed_plays_count += play["quantity"]
-            timed_users.append(play["userid"])
+            if 0 < play["length"] < time_limit:
+                if players and (int(players) != play["players"]):
+                    continue
+                time_sum += play["length"]
+                timed_plays_count += play["quantity"]
+                timed_users.append(play["userid"])
 
     users_count = len(set(users))
     avg_plays = plays_count / users_count
@@ -89,10 +87,8 @@ def main():
 
     print(name)
 
-    plays = bgg_core.read_data(game_id, "plays", get_plays)
-
-    game_stats = play_stats(players)
-    print("Timed plays: %d" % game_stats["timed_plays"])
+    game_stats = play_stats(game_id, players, update=True)
+    print("Timed plays: %d" % game_stats["timed_plays_count"])
     print("Average time: %.2f" % game_stats["avg_time"])
 
 

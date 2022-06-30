@@ -139,22 +139,42 @@ def write_data(data_dict, filename):
         json.dump(data_dict, jsonfile)
 
 
-def read_data(id, dir, func):
+def read_data(id, dir, func, update=False):
     """Read data into dict."""
 
     filename = "%s/%s.json" % (dir, id)
 
     if os.path.exists(filename):
         with open(filename) as jsonfile:
-            return json.load(jsonfile)
+            records = json.load(jsonfile)
+            if update:
+                records = update_data(id, records, func)
+                write_data(records, filename)
+            return records
     else:
         os.makedirs(dir, exist_ok=True)
         for _ in range(5):
-            records = func(id)
+            records = {}
+            for k, v in func(id):
+                records[k] = v
             if records:
                 break
         write_data(records, filename)
         return records
+
+
+def update_data(id, records, func):
+    """Read updated data into dict."""
+    page = len
+    for _ in range(5):
+        for k, v in func(id):
+            if k in records:
+                if v == records[k]:
+                    break
+            records[k] = v
+        if records:
+            break
+    return records
 
 
 class PersistDict(object):

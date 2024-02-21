@@ -1,5 +1,6 @@
 import glob
 import os
+from datetime import datetime
 
 import bgg_core
 
@@ -31,8 +32,13 @@ def play_stats(game_id, players=None, time_limit=500, play_limit=100, update=Fal
     """Calculate play stats."""
     plays = bgg_core.read_data(game_id, "plays", get_plays, update=update)
 
+    with bgg_core.PersistDict("yearpublished.json", bgg_core.get_game_year) as games:
+        yr_published = int(games[game_id])
+
     plays_count = 0
     users = []
+    user_years = []
+    user_year_plays_count = 0
     time_sum = 0
     timed_plays_count = 0
     timed_users = []
@@ -40,6 +46,14 @@ def play_stats(game_id, players=None, time_limit=500, play_limit=100, update=Fal
         if play["quantity"] < play_limit:
             plays_count += play["quantity"]
             users.append(play["userid"])
+
+            try:
+                yr = datetime.strptime(play["date"], "%Y-%m-%d").year
+                if yr >= yr_published:
+                    user_years.append((yr, play["userid"]))
+                    user_year_plays_count += play["quantity"]
+            except ValueError:
+                pass
 
             if 0 < play["length"] < time_limit:
                 if players and (int(players) != play["players"]):
@@ -50,6 +64,8 @@ def play_stats(game_id, players=None, time_limit=500, play_limit=100, update=Fal
 
     users_count = len(set(users))
     avg_plays = plays_count / users_count
+    user_years_count = len(set(user_years))
+    avg_plays_per_yr = user_year_plays_count / user_years_count
     timed_users_count = len(set(timed_users))
     avg_time = float(time_sum) / timed_plays_count
     avg_time_per_user = float(time_sum) / timed_users_count
@@ -58,6 +74,7 @@ def play_stats(game_id, players=None, time_limit=500, play_limit=100, update=Fal
             "plays_count": plays_count,
             "users_count": users_count,
             "avg_plays": avg_plays,
+            "avg_plays_per_yr": avg_plays_per_yr,
             "time_sum": time_sum,
             "timed_plays_count": timed_plays_count,
             "timed_users_count": timed_users_count,

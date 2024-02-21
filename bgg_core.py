@@ -131,6 +131,12 @@ def get_game_name(game_id):
     return game_info.find("name", attrs={"type": "primary"})["value"]
 
 
+def get_game_year(game_id):
+    """Get year published from ID."""
+    game_info = get_game_info([game_id])[0]
+    return game_info.find("yearpublished")["value"]
+
+
 def write_data(data_dict, filename):
     """Save dict to reduce repetitive scraping."""
 

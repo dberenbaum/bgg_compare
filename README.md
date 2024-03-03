@@ -1,4 +1,7 @@
-Compare ratings from http://www.boardgamegeek.com for any number of games,
-only using the ratings from users who have rated all of the games entered.
+Random analyses from http://www.boardgamegeek.com data.
 
-Usage: python3 bgg_compare.py
+Some usage examples:
+
+- `python bgg_plays.py`: Collect game stats about plays and ratings.
+- `python bgg_time.py`: Collect stats about length of logged plays by player count.
+- `python bgg_compare.py`: Compare games, only using the ratings from users who have rated all of the games entered.
